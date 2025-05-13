@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Stations>
+    <Station SR70="5433295">Brno hl.n.</Station>
+	<Station SR70="5433674">Karviná hl.n.</Station>
+	<Station SR70="5433984">Louky n.Olší</Station>
+	<Station SR70="5434362">Olomouc hl.n.</Station>
+	<Station SR70="5434364">Ostrava hl.n.</Station>
+	<Station SR70="5434615">Popovice u Uh.Hradiště</Station>
+	<Station SR70="5436155">Kostelany n.Moravou</Station>
+	<Station SR70="5453179">Ústí n.Labem hl.n.</Station>
+	<Station SR70="5453863">Ústí n.Orlicí</Station>
+	<Station SR70="5453873">Ústí n.Orlicí město</Station>
+	<Station SR70="5453613">Pardubice hl.n.</Station>
+	<Station SR70="5454257">Roudnice n.Labem</Station>
+	<Station SR70="5454396">Kralupy n.Vltavou</Station>
+	<Station SR70="5454436">Libčice n.Vltavou</Station>
+	<Station SR70="5454446">Dolany n.Vltavou</Station>
+	<Station SR70="5454456">Libčice n.Vltavou-Letky</Station>
+	<Station SR70="5457076">Praha hl.n.</Station>
+	<Station SR70="5457236">Praha Masarykovo n.</Station>
+</Stations>

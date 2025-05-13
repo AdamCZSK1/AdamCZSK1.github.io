@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Informační panel ZSSK</title>
+	<link rel="stylesheet" href="/css/style_ZSSK.css">
+    <script src="/js/scriptZSSK.js"></script>
+</head>
+<body>
+
+    <!-- HLAVIČKA -->
+    <div class="header">
+        <div class="train-info">
+            <div class="train-container">
+                <!-- Normální zobrazení -->
+                <div class="train-display">
+                    <div class="train-header">
+                        <span id="trainCategory">--</span> 
+                        <span id="trainNumber">--</span>
+						<span id="trainName">--</span>
+                    </div>
+                    <div class="route">
+                        <span id="departureStation">--</span> - 
+                        <span id="arrivalStation">--</span>
+                    </div>
+                </div>
+                <!-- LineIDS zobrazení -->
+                <div class="line-display hidden">
+                    <span id="lineIDS">--</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="datetime" id="datetime"></div>
+    </div>
+
+    <!-- NOVÝ ŘÁDEK POD HLAVIČKOU -->
+    <div class="separator"></div>
+
+    <!-- PLÁNOVANÝ ODJEZD + VÝCHOZÍ STANICE -->
+    <!-- Sekce s Plánem a Výchozí stanicí -->
+	<div class="departure-info">
+		<!-- Levá část: Plánovaný čas -->
+		<div class="time-info">
+			<div class="label">Plán</div>
+			<div class="time" id="plannedTime">--:--</div>
+		</div>
+
+		<!-- Čára s kolečkem -->
+		<div class="line-container">
+			<div class="circle"></div>
+		</div>
+
+		<!-- Pravá část: Výchozí stanice -->
+		<div class="station-info">
+			<div class="label" id="stationLabel">Nástupná stanica</div>
+			<div class="station" id="currentStation">--</div>
+			<div class="zone" id="tariffZone"></div>
+		</div>
+	</div>
+	
+	<div class="separator-large"></div>
+	<!-- NOVÁ STRUKTURA SE SPOJENOU ČÁROU, TEXTEM A SEZNAMEM STANIC -->
+	<div class="next-station-container">
+		<!-- Dolní část vertikální čáry -->
+		<div class="line-container-bottom"></div>
+
+		<!-- Text "Další stanice" + seznam nácestných stanic -->
+		<div>
+			<div class="next-station">Ďalšie stanice</div>
+			<div class="station-list" id="stationList"></div>
+		</div>
+	</div>
+
+	
+	<div class="separator60"></div>
+	
+</body>
+</html>

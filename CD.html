@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Informační panel ČD</title>
+	<link rel="stylesheet" href="/css/style_CD.css">
+    <script src="/js/script.js"></script>
+</head>
+<body>
+	
+	<!-- ✅ Hlavní kontejner pro obsah -->
+    <div class="main-container">
+
+        <!-- HLAVIČKA -->
+        <div class="header">
+            <div class="train-info">
+                <div class="train-container">
+                    <!-- Normální zobrazení -->
+                    <div class="train-display">
+                        <div class="train-header">
+                            <span id="trainCategory"></span> 
+                            <span id="trainNumber"></span>
+                            <span id="trainName"></span>
+                        </div>
+                        <div class="route">
+							<div class="scroll-text-wrapper">
+								<div class="scroll-inner" id="routeText">
+									<span id="departureStation"></span>
+									<span id="stationSeparator"></span>
+									<span id="arrivalStation"></span>
+								</div>
+							</div>
+						</div>
+                    </div>
+                    <!-- LineIDS zobrazení -->
+                    <div class="line-display hidden">
+                        <span id="lineIDS"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="datetime" id="datetime"></div>
+        </div>
+        
+        <!-- NOVÝ ŘÁDEK POD HLAVIČKOU -->
+        <div class="separator"></div>
+
+        <!-- ✅ Banner, který se zobrazí, pokud nejsou data -->
+        <div id="logo-banner">
+            <span class="logo">Ĺ</span>
+            <div class="logo-text">
+				<span class="banner-text">České dráhy</span>
+				<span class="sub-text">Národní dopravce</span>
+			</div>
+        </div>
+
+        <!-- ✅ První panel s informacemi -->
+        <div id="panel-content-1" class="hidden">
+            <div class="departure-info">
+                <div class="time-info">
+                    <div class="label">Plán</div>
+                    <div class="time" id="plannedTime">--:--</div>
+                </div>
+                <div class="line-container">
+                    <div class="circle"></div>
+                </div>
+				<div class="bell-column">
+					<span id="bellIcon" class="bell hidden">Ø</span>
+				</div>
+                <div class="station-info">
+                    <div class="label" id="stationLabel">Výchozí stanice</div>
+					<div class="station" id="currentStation">--</div>
+                    <div class="zone" id="tariffZone"></div>
+                </div>
+            </div>
+        </div>
+		
+		<div id="separator-1" class="hidden">
+            <div class="separator-large"></div>
+        </div>
+		
+		<div id="request-stop-container" class="request-stop-container hidden">
+			<div class="bell-column">
+				<span class="bell">Ø</span>
+			</div>
+			<div class="request-stop-text" id="request-text">Zastávka na znamení, pro výstup stiskněte tlačítko signalizace.</div>
+		</div>
+		
+        <!-- ✅ Druhý panel se seznamem stanic -->
+        <div id="panel-content-2" class="hidden">
+            <div class="next-station-container">
+                <div class="line-container-bottom"></div>
+                <div>
+                    <div class="next-station">Další stanice</div>
+                    <div class="station-list" id="stationList"></div>
+                </div>
+            </div>
+        </div>
+		
+    </div> <!-- Konec .main-container -->
+
+	<div class="separator100">
+		<div class="separator-text">Ĺ</div>
+	</div>
+	
+</body>
+</html>
