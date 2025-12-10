@@ -3,129 +3,126 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Praha hl. n. – Odjezdová tabule</title>
-  <!-- React + ReactDOM z CDN -->
-  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin>// --- Přidáno: nástupiště + kolej ---
-// PID poskytuje stop.platform_code a stop.platform_name
-// doplňujeme do tabule další sloupec
+  <title>Praha hl. n. – Odjezdová tabule (SŽ styl)</title>
 
-// úprava renderBoard – vložíme platformuunction renderBoard(items) {
-    const container = document.getElementById("board");
-
-    let html = `
-    <table class="w-full border-collapse">
-        <tr class="table-header">
-            <td class="p-2">Čas</td>
-            <td class="p-2">Vlak</td>
-            <td class="p-2">Směr</td>
-            <td class="p-2">Nást.</td>
-            <td class="p-2 text-right">Odjezd za</td>
-        </tr>
-    `;
-
-    items.forEach(item => {
-        const t = new Date(item.departure);
-        const now = new Date();
-        const diff = Math.floor((t - now) / 1000);
-        const mins = Math.floor(diff / 60);
-        const secs = diff % 60;
-
-        html += `
-            <tr class="row">
-                <td class="p-2 time">${t.toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit" })}</td>
-                <td class="p-2">${item.line}</td>
-                <td class="p-2">${item.headsign}</td>
-                <td class="p-2">${item.platform || '-'}</td>
-                <td class="p-2 text-right countdown">${mins} min ${secs}s</td>
-            </tr>
-        `;
-    });
-
-    html += `</table>`;
-    container.innerHTML = html;
-}
-
-</script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
-  <!-- Tailwind z CDN -->
+  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    body {
+      background: #001d3d;
+      color: #fff;
+      font-family: Arial, sans-serif;
+    }
+    .sz-header {
+      background: #003566;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+    .sz-row {
+      background: #00254d;
+      border-bottom: 1px solid #003566;
+    }
+    .sz-row:nth-child(even) {
+      background: #002a56;
+    }
+    .time-cell { color: #4cc3ff; font-weight: bold; }
+    .countdown { color: #ffdd33; font-weight: bold; }
+  </style>
 </head>
-<body class="bg-slate-900 text-white min-h-screen p-6">
-  <div id="root"></div>
+<body class="p-6">
+  <h1 class="text-4xl font-bold text-center mb-6">Praha hlavní nádraží – Odjezdy vlaků</h1>
 
-  <script type="text/javascript">
-    const { useState, useEffect, useRef } = React;
+  <div id="board" class="w-full max-w-5xl mx-auto text-lg"></div>
 
-    function PragueDepartureBoard({ apiUrl, refreshIntervalMs = 10000 }) {
-      const [departures, setDepartures] = useState([]);
-      const [now, setNow] = useState(() => new Date());
+  <!-- Externí config s API klíčem -->
+  <script src="config.js"></script>
 
-      // Sample data když není API
-      function makeSampleData() {
-        const base = Date.now();
-        return [
-          { id: '1', line: 'R 120', destination: 'Brno hl.n.', scheduledTime: new Date(base + 90000).toISOString() },
-          { id: '2', line: 'EC 104', destination: 'Budapešť', scheduledTime: new Date(base + 5*60000).toISOString() },
-          { id: '3', line: 'Os 7102', destination: 'Kladno', scheduledTime: new Date(base + 12*60000 + 30000).toISOString() },
-        ];
-      }
+  <script>
+    async function loadDepartures() {
+      const now = new Date();
 
-      async function fetchDepartures() {
-        if (!apiUrl) {
-          setDepartures(makeSampleData());
-          return;
-        }
-        try {
-          const res = await fetch(apiUrl, { cache: 'no-store' });
-          const data = await res.json();
-          const normalized = (Array.isArray(data) ? data : []).map((d, i) => ({
-            id: d.id ?? `dep-${i}`,
-            line: d.line ?? '–',
-            destination: d.destination ?? '–',
-            scheduledTime: d.scheduledTime ?? null,
-          })).filter(d => d.scheduledTime);
-          setDepartures(normalized);
-        } catch (e) {
-          setDepartures(makeSampleData());
-        }
-      }
+      const url = `https://api.golemio.cz/v2/pid/gtfs/vehiclepositions`; // přesnější info o vlacích
 
-      useEffect(() => {
-        const tick = setInterval(() => setNow(new Date()), 1000);
-        fetchDepartures();
-        const ref = setInterval(fetchDepartures, refreshIntervalMs);
-        return () => { clearInterval(tick); clearInterval(ref); };
-      }, [apiUrl, refreshIntervalMs]);
+      const response = await fetch(url, {
+        headers: {
+          "X-Access-Token": GOLEMIO_API_KEY,
+        },
+      });
 
-      function secondsUntil(t) {
-        const x = Math.floor((new Date(t).getTime() - now.getTime()) / 1000);
-        return x;
-      }
+      const data = await response.json();
+      const vehicles = data.vehicle_positions || [];
 
-      const upcoming = departures
-        .map(d => ({ ...d, secs: secondsUntil(d.scheduledTime) }))
-        .sort((a,b) => a.secs - b.secs);
+      let departures = [];
 
-      return (
-        React.createElement('div', { className: 'max-w-3xl mx-auto' }, [
-          React.createElement('h1', { className: 'text-3xl font-bold mb-4' }, 'Praha hl. n. – Odjezdy'),
+      vehicles.forEach(v => {
+        if (!v.trip || !v.stop_sequence || !v.stop) return;
 
-          upcoming.map(d => React.createElement('div', {
-            key: d.id,
-            className: 'grid grid-cols-12 gap-4 p-3 bg-slate-800 rounded-xl mb-2'
-          }, [
-            React.createElement('div', { className: 'col-span-2 font-bold' }, d.line),
-            React.createElement('div', { className: 'col-span-6' }, d.destination),
-            React.createElement('div', { className: 'col-span-2 font-mono' }, new Date(d.scheduledTime).toLocaleTimeString('cs-CZ', {hour:'2-digit', minute:'2-digit'})),
-            React.createElement('div', { className: 'col-span-2 font-mono' }, d.secs + 's')
-          ]))
-        ])
-      );
+        // typ 2 = vlaky (GTFS)
+        if (v.route && v.route.type !== 2) return;
+
+        const stopName = v.stop.stop_name.toLowerCase();
+        if (!stopName.includes("hl.n") && !stopName.includes("hl. n") && !stopName.includes("hlavni")) return;
+
+        if (!v.stop.departure_time) return;
+
+        const dep = new Date(v.stop.departure_time);
+        if (dep < now) return;
+
+        departures.push({
+          time: dep,
+          line: v.route?.short_name || "-",
+          headsign: v.trip?.trip_headsign || "-",
+          platform: v.stop.platform_code || v.stop.platform_name || "-",
+        });
+      });
+
+      departures.sort((a, b) => a.time - b.time);
+
+      renderBoard(departures.slice(0, 12));
     }
 
-    ReactDOM.createRoot(document.getElementById('root')).render(
-      React.createElement(PragueDepartureBoard, {})
-    );
+    function renderBoard(list) {
+      const out = [];
+
+      out.push(`
+        <table class='w-full border-collapse'>
+          <tr class='sz-header'>
+            <td class='p-3'>Čas</td>
+            <td class='p-3'>Vlak</td>
+            <td class='p-3'>Směr</td>
+            <td class='p-3'>Nástupiště</td>
+            <td class='p-3 text-right'>Odjezd za</td>
+          </tr>
+      `);
+
+      const now = new Date();
+
+      list.forEach(it => {
+        const delay = it.delay || 0;
+        const diff = Math.floor((it.time - now) / 1000);
+        const m = Math.floor(diff / 60);
+        const s = diff % 60;
+
+        out.push(`
+          <tr class='sz-row'>
+            <td class='p-3 time-cell'>${it.time.toLocaleTimeString("cs-CZ", {hour: "2-digit", minute: "2-digit"})}</td>
+            <td class='p-3'>${it.line}</td>
+            <td class='p-3'>${it.headsign}</td>
+            <td class='p-3'>${it.platform}</td>
+            <td class='p-3 text-right countdown ${diff < 60 ? "animate-pulse" : ""}'>${m} min ${s}s ${delay>0?`(+${Math.floor(delay/60)} min)`:''}</td>
+          </tr>
+        `);
+      });
+
+      out.push(`</table>`);
+
+      document.getElementById("board").innerHTML = out.join("");
+    }
+
+    loadDepartures();
+    setInterval(loadDepartures, 15000);
+    setInterval(loadDepartures, 1000);
   </script>
 </body>
 </html>
