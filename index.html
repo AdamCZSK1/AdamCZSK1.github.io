@@ -1,103 +1,15 @@
 <!DOCTYPE html>
 <html lang="cs">
 <head>
-    <meta charset="UTF-8">
-    <title>Praha hl. n. – Odjezdová tabule</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Praha hl. n. – Odjezdová tabule</title>
+  <!-- React + ReactDOM z CDN -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin>// --- Přidáno: nástupiště + kolej ---
+// PID poskytuje stop.platform_code a stop.platform_name
+// doplňujeme do tabule další sloupec
 
-    <!-- Tailwind přes CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- Styl tabule -->
-    <style>
-        body {
-            background: #001d3d;
-            color: #ffffff;
-            font-family: Arial, sans-serif;
-        }
-        .table-header {
-            background: #003566;
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-        .row {
-            background: #00254d;
-        }
-        .row:nth-child(even) {
-            background: #002d59;
-        }
-        .time {
-            font-weight: bold;
-            color: #66ccff;
-        }
-        .countdown {
-            color: #ffc300;
-            font-weight: bold;
-        }
-    </style>
-</head>
-
-<body class="p-6">
-
-<h1 class="text-4xl font-bold text-center mb-6">Praha hlavní nádraží – Odjezdy vlaků</h1>
-
-<div id="board" class="w-full max-w-4xl mx-auto text-lg"></div>
-
-<script src="config.js"></script>
-
-<script>
-const STATION_ID = "PRAHA-HL-N"; // nepotřebujeme přesné ID, filtrujeme podle zastávek
-
-async function loadDepartures() {
-    const now = new Date();
-    const url = `https://api.golemio.cz/v2/pid/gtfs/trips?loc=50.08333,14.43500&radius=2000&min_time=${now.toISOString()}`;
-
-    const res = await fetch(url, {
-        headers: { 
-            "X-Access-Token": GOLEMIO_API_KEY 
-        }
-    });
-
-    const data = await res.json();
-    const trips = data.trips || [];
-
-    // Filtrujeme jen vlaky + které mají zastávku "Praha hl. n."
-    const departures = [];
-
-    trips.forEach(trip => {
-        if (!trip.route || !trip.stop_times) return;
-
-        const isTrain = trip.route.type === 2; // GTFS type 2 = vlak
-
-        if (!isTrain) return;
-
-        // Najdeme odjezd z Praha hl. n.
-        const stop = trip.stop_times.find(s => 
-            s.stop.stop_name.toLowerCase().includes("hl.n") ||
-            s.stop.stop_name.toLowerCase().includes("hl. n") ||
-            s.stop.stop_name.toLowerCase().includes("hlavni")
-        );
-
-        if (!stop) return;
-
-        const departureTime = stop.departure.utc;
-
-        // jen budoucí odjezdy
-        if (new Date(departureTime) < now) return;
-
-        departures.push({
-            line: trip.route.short_name,
-            headsign: trip.trip_headsign,
-            departure: departureTime
-        });
-    });
-
-    departures.sort((a, b) => new Date(a.departure) - new Date(b.departure));
-
-    renderBoard(departures.slice(0, 10));
-}
-
-function renderBoard(items) {
+// úprava renderBoard – vložíme platformuunction renderBoard(items) {
     const container = document.getElementById("board");
 
     let html = `
@@ -106,6 +18,7 @@ function renderBoard(items) {
             <td class="p-2">Čas</td>
             <td class="p-2">Vlak</td>
             <td class="p-2">Směr</td>
+            <td class="p-2">Nást.</td>
             <td class="p-2 text-right">Odjezd za</td>
         </tr>
     `;
@@ -122,6 +35,7 @@ function renderBoard(items) {
                 <td class="p-2 time">${t.toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit" })}</td>
                 <td class="p-2">${item.line}</td>
                 <td class="p-2">${item.headsign}</td>
+                <td class="p-2">${item.platform || '-'}</td>
                 <td class="p-2 text-right countdown">${mins} min ${secs}s</td>
             </tr>
         `;
@@ -131,14 +45,87 @@ function renderBoard(items) {
     container.innerHTML = html;
 }
 
-// aktualizace tabule
-loadDepartures();
-setInterval(loadDepartures, 15000);
-
-// přepočet sekund každou sekundu
-setInterval(() => loadDepartures(), 1000);
-
 </script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <!-- Tailwind z CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-white min-h-screen p-6">
+  <div id="root"></div>
 
+  <script type="text/javascript">
+    const { useState, useEffect, useRef } = React;
+
+    function PragueDepartureBoard({ apiUrl, refreshIntervalMs = 10000 }) {
+      const [departures, setDepartures] = useState([]);
+      const [now, setNow] = useState(() => new Date());
+
+      // Sample data když není API
+      function makeSampleData() {
+        const base = Date.now();
+        return [
+          { id: '1', line: 'R 120', destination: 'Brno hl.n.', scheduledTime: new Date(base + 90000).toISOString() },
+          { id: '2', line: 'EC 104', destination: 'Budapešť', scheduledTime: new Date(base + 5*60000).toISOString() },
+          { id: '3', line: 'Os 7102', destination: 'Kladno', scheduledTime: new Date(base + 12*60000 + 30000).toISOString() },
+        ];
+      }
+
+      async function fetchDepartures() {
+        if (!apiUrl) {
+          setDepartures(makeSampleData());
+          return;
+        }
+        try {
+          const res = await fetch(apiUrl, { cache: 'no-store' });
+          const data = await res.json();
+          const normalized = (Array.isArray(data) ? data : []).map((d, i) => ({
+            id: d.id ?? `dep-${i}`,
+            line: d.line ?? '–',
+            destination: d.destination ?? '–',
+            scheduledTime: d.scheduledTime ?? null,
+          })).filter(d => d.scheduledTime);
+          setDepartures(normalized);
+        } catch (e) {
+          setDepartures(makeSampleData());
+        }
+      }
+
+      useEffect(() => {
+        const tick = setInterval(() => setNow(new Date()), 1000);
+        fetchDepartures();
+        const ref = setInterval(fetchDepartures, refreshIntervalMs);
+        return () => { clearInterval(tick); clearInterval(ref); };
+      }, [apiUrl, refreshIntervalMs]);
+
+      function secondsUntil(t) {
+        const x = Math.floor((new Date(t).getTime() - now.getTime()) / 1000);
+        return x;
+      }
+
+      const upcoming = departures
+        .map(d => ({ ...d, secs: secondsUntil(d.scheduledTime) }))
+        .sort((a,b) => a.secs - b.secs);
+
+      return (
+        React.createElement('div', { className: 'max-w-3xl mx-auto' }, [
+          React.createElement('h1', { className: 'text-3xl font-bold mb-4' }, 'Praha hl. n. – Odjezdy'),
+
+          upcoming.map(d => React.createElement('div', {
+            key: d.id,
+            className: 'grid grid-cols-12 gap-4 p-3 bg-slate-800 rounded-xl mb-2'
+          }, [
+            React.createElement('div', { className: 'col-span-2 font-bold' }, d.line),
+            React.createElement('div', { className: 'col-span-6' }, d.destination),
+            React.createElement('div', { className: 'col-span-2 font-mono' }, new Date(d.scheduledTime).toLocaleTimeString('cs-CZ', {hour:'2-digit', minute:'2-digit'})),
+            React.createElement('div', { className: 'col-span-2 font-mono' }, d.secs + 's')
+          ]))
+        ])
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(
+      React.createElement(PragueDepartureBoard, {})
+    );
+  </script>
 </body>
 </html>
