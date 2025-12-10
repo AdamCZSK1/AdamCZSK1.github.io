@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <title>Praha hl. n. – Odjezdová tabule</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Tailwind přes CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Styl tabule -->
+    <style>
+        body {
+            background: #001d3d;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+        }
+        .table-header {
+            background: #003566;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .row {
+            background: #00254d;
+        }
+        .row:nth-child(even) {
+            background: #002d59;
+        }
+        .time {
+            font-weight: bold;
+            color: #66ccff;
+        }
+        .countdown {
+            color: #ffc300;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body class="p-6">
+
+<h1 class="text-4xl font-bold text-center mb-6">Praha hlavní nádraží – Odjezdy vlaků</h1>
+
+<div id="board" class="w-full max-w-4xl mx-auto text-lg"></div>
+
+<script src="config.js"></script>
+
+<script>
+const STATION_ID = "PRAHA-HL-N"; // nepotřebujeme přesné ID, filtrujeme podle zastávek
+
+async function loadDepartures() {
+    const now = new Date();
+    const url = `https://api.golemio.cz/v2/pid/gtfs/trips?loc=50.08333,14.43500&radius=2000&min_time=${now.toISOString()}`;
+
+    const res = await fetch(url, {
+        headers: { 
+            "X-Access-Token": GOLEMIO_API_KEY 
+        }
+    });
+
+    const data = await res.json();
+    const trips = data.trips || [];
+
+    // Filtrujeme jen vlaky + které mají zastávku "Praha hl. n."
+    const departures = [];
+
+    trips.forEach(trip => {
+        if (!trip.route || !trip.stop_times) return;
+
+        const isTrain = trip.route.type === 2; // GTFS type 2 = vlak
+
+        if (!isTrain) return;
+
+        // Najdeme odjezd z Praha hl. n.
+        const stop = trip.stop_times.find(s => 
+            s.stop.stop_name.toLowerCase().includes("hl.n") ||
+            s.stop.stop_name.toLowerCase().includes("hl. n") ||
+            s.stop.stop_name.toLowerCase().includes("hlavni")
+        );
+
+        if (!stop) return;
+
+        const departureTime = stop.departure.utc;
+
+        // jen budoucí odjezdy
+        if (new Date(departureTime) < now) return;
+
+        departures.push({
+            line: trip.route.short_name,
+            headsign: trip.trip_headsign,
+            departure: departureTime
+        });
+    });
+
+    departures.sort((a, b) => new Date(a.departure) - new Date(b.departure));
+
+    renderBoard(departures.slice(0, 10));
+}
+
+function renderBoard(items) {
+    const container = document.getElementById("board");
+
+    let html = `
+    <table class="w-full border-collapse">
+        <tr class="table-header">
+            <td class="p-2">Čas</td>
+            <td class="p-2">Vlak</td>
+            <td class="p-2">Směr</td>
+            <td class="p-2 text-right">Odjezd za</td>
+        </tr>
+    `;
+
+    items.forEach(item => {
+        const t = new Date(item.departure);
+        const now = new Date();
+        const diff = Math.floor((t - now) / 1000);
+        const mins = Math.floor(diff / 60);
+        const secs = diff % 60;
+
+        html += `
+            <tr class="row">
+                <td class="p-2 time">${t.toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit" })}</td>
+                <td class="p-2">${item.line}</td>
+                <td class="p-2">${item.headsign}</td>
+                <td class="p-2 text-right countdown">${mins} min ${secs}s</td>
+            </tr>
+        `;
+    });
+
+    html += `</table>`;
+    container.innerHTML = html;
+}
+
+// aktualizace tabule
+loadDepartures();
+setInterval(loadDepartures, 15000);
+
+// přepočet sekund každou sekundu
+setInterval(() => loadDepartures(), 1000);
+
+</script>
+
+</body>
+</html>
