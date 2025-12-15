@@ -84,7 +84,7 @@
 
 <div class="board">
   <div class="top">
-    <div class="stop" id="stopName">Vyber zastávku</div>
+    <div class="stop" id="stopName">Načítání…</div>
     <div class="time" id="clock">--:--</div>
   </div>
 
@@ -106,7 +106,6 @@
 </div>
 
 <script>
-// --- DATA SE NAČÍTAJÍ Z pmdp.json ---
 let data = {};
 
 const stopSelect = document.getElementById('stopSelect');
@@ -116,7 +115,7 @@ const departuresEl = document.getElementById('departures');
 
 function fillStops() {
   stopSelect.innerHTML = '';
-  Object.keys(data).forEach(stop => {
+  Object.keys(data).sort().forEach(stop => {
     const opt = document.createElement('option');
     opt.value = stop;
     opt.textContent = stop;
@@ -138,21 +137,28 @@ function renderDepartures(stop) {
   stopName.textContent = stop;
   departuresEl.innerHTML = '';
 
+  if (!data[stop] || !Array.isArray(data[stop].departures)) {
+    departuresEl.innerHTML = '<tr><td colspan="3">Žádné odjezdy</td></tr>';
+    return;
+  }
+
   const now = nowMinutes();
 
   data[stop].departures
     .map(d => {
+      if (!d.time) return null;
       let diff = timeToMinutes(d.time) - now;
-      if (diff < 0) diff += 24 * 60; // přes půlnoc
+      if (diff < 0) diff += 24 * 60;
       return { ...d, diff };
     })
+    .filter(Boolean)
     .sort((a, b) => a.diff - b.diff)
     .slice(0, 10)
     .forEach(d => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td class="line">${d.line}</td>
-        <td>${d.dest}</td>
+        <td class="line">${d.line || ''}</td>
+        <td>${d.dest || ''}</td>
         <td class="minutes">${Math.floor(d.diff)} min</td>
       `;
       departuresEl.appendChild(tr);
@@ -180,8 +186,13 @@ fetch('pmdp.json')
   .then(json => {
     data = json;
     fillStops();
-    renderDepartures(Object.keys(data)[0]);
+    const first = Object.keys(data)[0];
+    if (first) renderDepartures(first);
     setInterval(() => renderDepartures(stopSelect.value), 30000);
+  })
+  .catch(err => {
+    stopName.textContent = 'Chyba načtení dat';
+    console.error(err);
   });
 
 updateClock();
