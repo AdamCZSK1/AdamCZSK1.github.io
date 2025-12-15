@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <title>PMDP – Odjezdová tabule</title>
+  <style>
+    body {
+      margin: 0;
+      background: #2f2a2c;
+      font-family: Arial, Helvetica, sans-serif;
+      color: #ffb400;
+    }
+
+    .board {
+      width: 1000px;
+      margin: 20px auto;
+      border: 8px solid #5b5456;
+      background: #000;
+    }
+
+    .top {
+      background: #6a6265;
+      color: #fff;
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .stop {
+      font-size: 28px;
+      color: #9ad14b;
+      font-weight: bold;
+    }
+
+    .time {
+      font-size: 32px;
+      color: #ffb400;
+      background: #000;
+      padding: 5px 15px;
+    }
+
+    .menu {
+      background: #1a1a1a;
+      padding: 10px;
+      display: flex;
+      gap: 10px;
+    }
+
+    select, input {
+      font-size: 16px;
+      padding: 5px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 28px;
+    }
+
+    th {
+      text-align: left;
+      padding: 10px;
+      color: #fff;
+      font-size: 14px;
+      background: #000;
+    }
+
+    td {
+      padding: 6px 10px;
+    }
+
+    .line {
+      width: 80px;
+    }
+
+    .minutes {
+      text-align: right;
+      width: 120px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="board">
+  <div class="top">
+    <div class="stop" id="stopName">Vyber zastávku</div>
+    <div class="time" id="clock">--:--</div>
+  </div>
+
+  <div class="menu">
+    <select id="stopSelect"></select>
+    <input type="text" id="stopSearch" placeholder="Hledat zastávku…" />
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th class="line">LINKA</th>
+        <th>CÍL</th>
+        <th class="minutes">ODJEZD</th>
+      </tr>
+    </thead>
+    <tbody id="departures"></tbody>
+  </table>
+</div>
+
+<script>
+// --- DATA SE NAČÍTAJÍ Z pmdp.json ---
+let data = {};
+
+const stopSelect = document.getElementById('stopSelect');
+const stopSearch = document.getElementById('stopSearch');
+const stopName = document.getElementById('stopName');
+const departuresEl = document.getElementById('departures');
+
+function fillStops() {
+  stopSelect.innerHTML = '';
+  Object.keys(data).forEach(stop => {
+    const opt = document.createElement('option');
+    opt.value = stop;
+    opt.textContent = stop;
+    stopSelect.appendChild(opt);
+  });
+}
+
+function timeToMinutes(t) {
+  const [h, m, s] = t.split(':').map(Number);
+  return h * 60 + m + (s ? s / 60 : 0);
+}
+
+function nowMinutes() {
+  const d = new Date();
+  return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
+}
+
+function renderDepartures(stop) {
+  stopName.textContent = stop;
+  departuresEl.innerHTML = '';
+
+  const now = nowMinutes();
+
+  data[stop].departures
+    .map(d => {
+      let diff = timeToMinutes(d.time) - now;
+      if (diff < 0) diff += 24 * 60; // přes půlnoc
+      return { ...d, diff };
+    })
+    .sort((a, b) => a.diff - b.diff)
+    .slice(0, 10)
+    .forEach(d => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="line">${d.line}</td>
+        <td>${d.dest}</td>
+        <td class="minutes">${Math.floor(d.diff)} min</td>
+      `;
+      departuresEl.appendChild(tr);
+    });
+}
+
+stopSelect.addEventListener('change', e => renderDepartures(e.target.value));
+
+stopSearch.addEventListener('input', e => {
+  const val = e.target.value.toLowerCase();
+  [...stopSelect.options].forEach(o => {
+    o.hidden = !o.value.toLowerCase().includes(val);
+  });
+});
+
+function updateClock() {
+  const d = new Date();
+  const h = String(d.getHours()).padStart(2, '0');
+  const m = String(d.getMinutes()).padStart(2, '0');
+  document.getElementById('clock').textContent = `${h}:${m}`;
+}
+
+fetch('pmdp.json')
+  .then(r => r.json())
+  .then(json => {
+    data = json;
+    fillStops();
+    renderDepartures(Object.keys(data)[0]);
+    setInterval(() => renderDepartures(stopSelect.value), 30000);
+  });
+
+updateClock();
+setInterval(updateClock, 1000);
+</script>
+
+</body>
+</html>
