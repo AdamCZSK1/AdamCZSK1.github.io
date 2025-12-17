@@ -1,96 +1,76 @@
 <!DOCTYPE html>
 <html lang="cs">
 <head>
-  <meta charset="UTF-8" />
-  <title>PMDP – Odjezdová tabule</title>
-  <style>
-    body {
-      margin: 0;
-      background: #2f2a2c;
-      font-family: Arial, Helvetica, sans-serif;
-      color: #ffb400;
-    }
+<meta charset="UTF-8">
+<title>PMDP – Odjezdová tabule</title>
 
-    .board {
-      width: 1000px;
-      margin: 20px auto;
-      border: 8px solid #5b5456;
-      background: #000;
-    }
-
-    .top {
-      background: #6a6265;
-      color: #fff;
-      padding: 10px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .stop {
-      font-size: 28px;
-      color: #9ad14b;
-      font-weight: bold;
-    }
-
-    .time {
-      font-size: 32px;
-      color: #ffb400;
-      background: #000;
-      padding: 5px 15px;
-    }
-
-    .menu {
-      background: #1a1a1a;
-      padding: 10px;
-      display: flex;
-      gap: 10px;
-    }
-
-    select, input {
-      font-size: 16px;
-      padding: 5px;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 28px;
-    }
-
-    th {
-      text-align: left;
-      padding: 10px;
-      color: #fff;
-      font-size: 14px;
-      background: #000;
-    }
-
-    td {
-      padding: 6px 10px;
-    }
-
-    .line {
-      width: 80px;
-    }
-
-    .minutes {
-      text-align: right;
-      width: 120px;
-    }
-  </style>
+<style>
+body {
+  margin: 0;
+  background: #2f2a2c;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #ffb400;
+}
+.board {
+  width: 1000px;
+  margin: 20px auto;
+  border: 8px solid #5b5456;
+  background: #000;
+}
+.top {
+  background: #6a6265;
+  color: #fff;
+  padding: 10px 20px;
+  display: flex;
+  justify-content: space-between;
+}
+.stop {
+  font-size: 28px;
+  color: #9ad14b;
+  font-weight: bold;
+}
+.time {
+  font-size: 32px;
+  background: #000;
+  padding: 5px 15px;
+}
+.menu {
+  background: #1a1a1a;
+  padding: 10px;
+}
+select {
+  font-size: 16px;
+  padding: 5px;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 28px;
+}
+th {
+  text-align: left;
+  padding: 10px;
+  font-size: 14px;
+  background: #000;
+  color: #fff;
+}
+td {
+  padding: 6px 10px;
+}
+.line { width: 80px; }
+.minutes { text-align: right; width: 120px; }
+</style>
 </head>
-<body>
 
+<body>
 <div class="board">
   <div class="top">
-    <div class="stop" id="stopName">Načítání…</div>
+    <div class="stop" id="stopName">Vyber zastávku</div>
     <div class="time" id="clock">--:--</div>
   </div>
 
   <div class="menu">
     <select id="stopSelect"></select>
-    <input type="text" id="stopSearch" placeholder="Hledat zastávku…" />
   </div>
 
   <table>
@@ -106,98 +86,88 @@
 </div>
 
 <script>
-let data = {};
+let data = { services:{}, stops:{} };
 
 const stopSelect = document.getElementById('stopSelect');
-const stopSearch = document.getElementById('stopSearch');
 const stopName = document.getElementById('stopName');
 const departuresEl = document.getElementById('departures');
 
-function fillStops() {
-  stopSelect.innerHTML = '';
-  Object.keys(data).sort().forEach(stop => {
-    const opt = document.createElement('option');
-    opt.value = stop;
-    opt.textContent = stop;
-    stopSelect.appendChild(opt);
-  });
-}
+function serviceValid(service) {
+  const d = new Date();
+  const ymd =
+    d.getFullYear()*10000 +
+    (d.getMonth()+1)*100 +
+    d.getDate();
 
-function timeToMinutes(t) {
-  const [h, m, s] = t.split(':').map(Number);
-  return h * 60 + m + (s ? s / 60 : 0);
+  const wd = (d.getDay() + 6) % 7;
+
+  if (service.exceptions && service.exceptions[ymd] !== undefined) {
+    return service.exceptions[ymd];
+  }
+
+  if (ymd < service.start || ymd > service.end) return false;
+  return service.days[wd] === 1;
 }
 
 function nowMinutes() {
   const d = new Date();
-  return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
+  return d.getHours()*60 + d.getMinutes() + d.getSeconds()/60;
 }
 
-function renderDepartures(stop) {
+function timeToMinutes(t) {
+  const [h,m,s] = t.split(':').map(Number);
+  return h*60 + m + (s||0)/60;
+}
+
+function render(stop) {
   stopName.textContent = stop;
   departuresEl.innerHTML = '';
-
-  if (!data[stop] || !Array.isArray(data[stop].departures)) {
-    departuresEl.innerHTML = '<tr><td colspan="3">Žádné odjezdy</td></tr>';
-    return;
-  }
-
   const now = nowMinutes();
 
-  data[stop].departures
+  data.stops[stop].departures
+    .filter(d => serviceValid(data.services[d.service]))
     .map(d => {
-      if (!d.time) return null;
       let diff = timeToMinutes(d.time) - now;
-      if (diff < 0) diff += 24 * 60;
-      return { ...d, diff };
+      if (diff < 0) diff += 1440;
+      return {...d, diff};
     })
-    .filter(Boolean)
-    .sort((a, b) => a.diff - b.diff)
-    .slice(0, 10)
+    .sort((a,b) => a.diff - b.diff)
+    .slice(0,10)
     .forEach(d => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td class="line">${d.line || ''}</td>
-        <td>${d.dest || ''}</td>
-        <td class="minutes">${Math.floor(d.diff)} min</td>
-      `;
+        <td class="line">${d.line}</td>
+        <td>${d.dest}</td>
+        <td class="minutes">${Math.floor(d.diff)} min</td>`;
       departuresEl.appendChild(tr);
     });
 }
 
-stopSelect.addEventListener('change', e => renderDepartures(e.target.value));
-
-stopSearch.addEventListener('input', e => {
-  const val = e.target.value.toLowerCase();
-  [...stopSelect.options].forEach(o => {
-    o.hidden = !o.value.toLowerCase().includes(val);
-  });
-});
-
 function updateClock() {
   const d = new Date();
-  const h = String(d.getHours()).padStart(2, '0');
-  const m = String(d.getMinutes()).padStart(2, '0');
-  document.getElementById('clock').textContent = `${h}:${m}`;
+  document.getElementById('clock').textContent =
+    String(d.getHours()).padStart(2,'0') + ':' +
+    String(d.getMinutes()).padStart(2,'0');
 }
 
 fetch('pmdp.json')
   .then(r => r.json())
-  .then(json => {
-    data = json;
-    fillStops();
-    const first = Object.keys(data)[0];
-    if (first) renderDepartures(first);
-    setInterval(() => renderDepartures(stopSelect.value), 30000);
-  })
-  .catch(err => {
-    stopName.textContent = 'Chyba načtení dat';
-    console.error(err);
+  .then(j => {
+    data = j;
+    Object.keys(data.stops).forEach(s => {
+      const o = document.createElement('option');
+      o.value = s;
+      o.textContent = s;
+      stopSelect.appendChild(o);
+    });
+    render(stopSelect.value);
+    setInterval(() => render(stopSelect.value), 30000);
   });
+
+stopSelect.addEventListener('change', e => render(e.target.value));
 
 updateClock();
 setInterval(updateClock, 1000);
 </script>
-
 </body>
 </html>
