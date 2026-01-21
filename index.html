@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Odjezdová Tabule - Cyklování stanic</title>
+    <style>
+        body {
+            background-color: #00264d;
+            font-family: Arial, Helvetica, sans-serif;
+            margin: 0;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* --- HLAVIČKA TABULE --- */
+        .header {
+            width: 100%;
+            max-width: 1200px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            box-sizing: border-box;
+            background-color: #003366;
+            border-bottom: 2px solid #557fa3;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .icon-train {
+            font-size: 40px;
+            border: 2px solid white;
+            border-radius: 8px;
+            padding: 5px 10px;
+        }
+
+        .title-text {
+            font-size: 48px;
+            font-weight: bold;
+        }
+        
+        .title-sub {
+            font-size: 24px;
+            font-style: italic;
+            color: #b0c4de;
+            margin-left: 10px;
+        }
+
+        .clock {
+            font-size: 48px;
+            font-weight: normal;
+        }
+
+        /* --- TABULKA --- */
+        .board-container {
+            width: 100%;
+            max-width: 1200px;
+            background-color: #003366;
+            min-height: 400px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            table-layout: fixed; /* Fixní rozložení pro lepší stabilitu textu */
+        }
+
+        thead {
+            font-size: 14px;
+            color: #ffffff;
+            border-bottom: 1px solid #557fa3;
+        }
+
+        th {
+            padding: 10px 5px;
+            font-weight: bold;
+        }
+
+        .sub-header {
+            font-size: 11px;
+            font-weight: normal;
+            color: #b0c4de;
+            display: block;
+        }
+
+        tbody tr {
+            font-size: 28px;
+            font-weight: bold;
+            height: 55px; /* Pevná výška řádku */
+            border-bottom: 1px solid #004080;
+        }
+
+        tbody tr:nth-child(even) {
+            background-color: #002b55;
+        }
+
+        td {
+            padding: 8px 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis; /* Kdyby to bylo i tak moc dlouhé */
+        }
+
+        /* --- STYLY SLOUPCŮ --- */
+        .col-time { width: 90px; }
+        .col-delay { width: 90px; color: #ffff00; }
+        .col-train { width: 140px; font-size: 20px; }
+        .col-line { width: 70px; font-size: 20px; }
+        .col-dest { width: 320px; font-size: 32px; }
+        .col-via { width: 300px; font-size: 18px; font-weight: normal; color: #ddd; }
+        .col-plat { width: 80px; text-align: center; }
+
+        .yellow-text { color: #ffff00; }
+        
+        /* --- OVLÁDACÍ PANEL --- */
+        .admin-panel {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #f0f0f0;
+            color: #333;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 1160px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+
+        .admin-panel h2 { margin-top: 0; }
+        .hint { font-size: 12px; color: #666; margin-bottom: 10px; display: block;}
+
+        .input-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 10px 20px; cursor: pointer; background-color: #003366; color: white; border: none; border-radius: 4px; font-weight: bold; }
+        button:hover { background-color: #00509e; }
+        .delete-btn { background-color: #a00; font-size: 12px; padding: 5px 10px; }
+
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="header-title">
+            <div class="icon-train">🚆</div>
+            <div class="title-text">Odjezd <span class="title-sub">/ Departure</span></div>
+        </div>
+        <div class="clock" id="clock">00:00</div>
+    </div>
+
+    <div class="board-container">
+        <table>
+            <thead>
+                <tr>
+                    <th class="col-time">Pravidelný<span class="sub-header">Time</span></th>
+                    <th class="col-delay">Očekávaný<span class="sub-header">Estimated</span></th>
+                    <th class="col-train">Vlak<span class="sub-header">Train</span></th>
+                    <th class="col-line">Linka<span class="sub-header">Line</span></th>
+                    <th class="col-dest">Cíl<span class="sub-header">Destination</span></th>
+                    <th class="col-via">přes<span class="sub-header">Via</span></th>
+                    <th class="col-plat">Kolej<span class="sub-header">Platform</span></th>
+                    <th style="width: 30px;"></th>
+                </tr>
+            </thead>
+            <tbody id="board-body">
+                </tbody>
+        </table>
+    </div>
+
+    <div class="admin-panel">
+        <h2>Přidat spoj</h2>
+        <span class="hint">Tip: V poli "Přes" odděl stanice čárkou (např: Svinov, Hranice, Olomouc), budou se střídat.</span>
+        <div class="input-group">
+            <input type="text" id="in-time" placeholder="Čas" value="14:00">
+            <input type="text" id="in-est" placeholder="Zpoždění">
+            <input type="text" id="in-train" placeholder="Vlak" value="R 888">
+            <input type="text" id="in-line" placeholder="Linka">
+            <input type="text" id="in-dest" placeholder="Cíl" value="Brno hl.n.">
+            <input type="text" id="in-via" placeholder="Přes (odděl čárkou)" value="Ostrava-Svinov, Suchdol n.O., Hranice n.M.">
+            <input type="text" id="in-plat" placeholder="Kolej">
+        </div>
+        <button onclick="addTrain()">Přidat na tabuli</button>
+        <button onclick="clearBoard()" style="background-color: #800; float: right;">Smazat vše</button>
+    </div>
+
+    <script>
+        // Startovací data
+        let trains = [
+            { time: "13:52", est: "", train: "IC 131 ČD", line: "Ex4", dest: "Budapest-Keleti", via: "Ostrava-Svinov, Břeclav, Bratislava", plat: "2/2" },
+            { time: "13:55", est: "", train: "Os 20152 ČD", line: "S6", dest: "Frýdlant n.O.", via: "Ostrava-Kunčice, Vratimov, Paskov, Frýdek-Místek", plat: "5/3" },
+            { time: "14:01", est: "14:10", train: "EC 130 ČD", line: "Ex4", dest: "Terespol", via: "Bohumín, Zebrzydowice, Warszawa C.", plat: "1/1" },
+            { time: "14:09", est: "", train: "IC 114 ČD", line: "Ex1", dest: "Praha hl.n.", via: "VLAK ZRUŠEN!", plat: "-" }
+        ];
+
+        let cycleIndex = 0; // Počítadlo pro cyklování textu
+
+        function renderBoard() {
+            const tbody = document.getElementById("board-body");
+            tbody.innerHTML = "";
+
+            trains.forEach((t, index) => {
+                const tr = document.createElement("tr");
+
+                // Zpracování Zpoždění
+                const estClass = (t.est && t.est !== t.time) ? "yellow-text" : "";
+                
+                // Zpracování 'Přes' (cyklování)
+                const viaList = t.via.split(',').map(s => s.trim()); // Rozdělí text podle čárek
+                // Vybere aktuální stanici podle cycleIndex (modulo zajistí opakování)
+                const currentVia = viaList[cycleIndex % viaList.length];
+
+                // Styl pro zrušený vlak
+                const isCancelled = t.via.includes("ZRUŠEN") || t.dest.includes("ZRUŠEN");
+                const viaStyle = isCancelled ? "color: red; font-weight: bold;" : "";
+                
+                // Pokud je vlak zrušen, necyklujeme, ukážeme celou zprávu, jinak aktuální stanici
+                const displayVia = isCancelled ? t.via : currentVia;
+
+                tr.innerHTML = `
+                    <td class="col-time">${t.time}</td>
+                    <td class="col-delay ${estClass}">${t.est || ""}</td>
+                    <td class="col-train">${t.train}</td>
+                    <td class="col-line">${t.line}</td>
+                    <td class="col-dest">${t.dest}</td>
+                    <td class="col-via" style="${viaStyle}">${displayVia}</td>
+                    <td class="col-plat">${t.plat}</td>
+                    <td><button class="delete-btn" onclick="removeTrain(${index})">X</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Časovač pro přepínání stanic (každých 5 sekund)
+        setInterval(() => {
+            cycleIndex++; // Posuneme počítadlo
+            renderBoard(); // Překreslíme tabuli s novým textem
+        }, 5000);
+
+        function addTrain() {
+            const newTrain = {
+                time: document.getElementById("in-time").value,
+                est: document.getElementById("in-est").value,
+                train: document.getElementById("in-train").value,
+                line: document.getElementById("in-line").value,
+                dest: document.getElementById("in-dest").value,
+                via: document.getElementById("in-via").value,
+                plat: document.getElementById("in-plat").value
+            };
+            trains.push(newTrain);
+            trains.sort((a, b) => a.time.localeCompare(b.time));
+            renderBoard();
+        }
+
+        function removeTrain(index) {
+            trains.splice(index, 1);
+            renderBoard();
+        }
+
+        function clearBoard() {
+            if(confirm("Smazat vše?")) {
+                trains = [];
+                renderBoard();
+            }
+        }
+
+        function updateClock() {
+            const now = new Date();
+            document.getElementById("clock").innerText = 
+                String(now.getHours()).padStart(2, '0') + ":" + String(now.getMinutes()).padStart(2, '0');
+        }
+
+        setInterval(updateClock, 1000);
+        updateClock();
+        renderBoard();
+    </script>
+</body>
+</html>
