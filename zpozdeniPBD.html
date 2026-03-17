@@ -12,12 +12,10 @@
         button { padding: 0.6rem 1rem; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
         .btn-submit { background-color: #0056b3; color: white; }
         .btn-submit:hover { background-color: #004494; }
-        .btn-export { background-color: #28a745; color: white; margin-top: 1.5rem; margin-bottom: 1rem; }
-        .btn-export:hover { background-color: #218838; }
-        .action-buttons { display: none; } /* Skryto, dokud nejsou data */
-        table { width: 100%; border-collapse: collapse; margin-top: 1rem; display: none; }
-        th, td { border: 1px solid #ddd; padding: 0.5rem; text-align: left; }
-        th { background-color: #f4f4f4; }
+        .btn-submit:disabled { background-color: #999; cursor: not-allowed; }
+        #statusMessage { margin-top: 1rem; font-weight: bold; display: none; }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
     </style>
 </head>
 <body>
@@ -27,12 +25,12 @@
     <form id="delayForm">
         <div class="form-group">
             <label for="date">Datum:</label>
-            <input type="date" id="date" required>
+            <input type="date" id="date" name="date" required>
         </div>
 
         <div class="form-group">
             <label for="teacher">Učitel:</label>
-            <select id="teacher" required>
+            <select id="teacher" name="teacher" required>
                 <option value="">-- Vyberte učitele ze seznamu --</option>
                 <option value="Alena Honková">Alena Honková</option>
                 <option value="Anna Hýbnerová">Anna Hýbnerová</option>
@@ -60,114 +58,74 @@
 
         <div class="form-group">
             <label for="subject">Předmět:</label>
-            <input type="text" id="subject" placeholder="Např. Matematika, Čeština..." required>
+            <input type="text" id="subject" name="subject" placeholder="Např. Matematika, Čeština..." required>
         </div>
 
         <div class="form-group">
             <label for="lesson">Číslo hodiny (0-9):</label>
-            <input type="number" id="lesson" min="0" max="9" required>
+            <input type="number" id="lesson" name="lesson" min="0" max="9" required>
         </div>
 
         <div class="form-group">
             <label for="delay">Zpoždění (v minutách):</label>
-            <input type="number" id="delay" min="0" required>
+            <input type="number" id="delay" name="delay" min="0" required>
         </div>
 
-        <button type="submit" class="btn-submit">Přidat do seznamu</button>
+        <button type="submit" id="submitBtn" class="btn-submit">Odeslat do Google Tabulky</button>
     </form>
 
-    <div id="actionButtons" class="action-buttons">
-        <button class="btn-export" onclick="exportCSV()">Stáhnout tabulku do Excelu (CSV)</button>
-    </div>
-
-    <table id="dataTable">
-        <thead>
-            <tr>
-                <th>Datum</th>
-                <th>Učitel</th>
-                <th>Předmět</th>
-                <th>Hodina</th>
-                <th>Zpoždění (min)</th>
-            </tr>
-        </thead>
-        <tbody id="tableBody">
-            </tbody>
-    </table>
+    <div id="statusMessage"></div>
 
     <script>
         // Nastavení dnešního data jako výchozího
         document.getElementById('date').valueAsDate = new Date();
 
-        // Načtení dat z lokální paměti prohlížeče (nebo prázdné pole, pokud tam nic není)
-        let records = JSON.parse(localStorage.getItem('zpozdeni_dat')) || [];
+        // SEM VLOŽ SVOJI URL Z GOOGLE APPS SCRIPTU
+        const scriptURL = 'https://script.google.com/macros/s/AKfycbw4Tr00GaIf88oYhEkzY95HoRu5moHrZiuG9f9eiYktWybsOEjqRPrFDxWId405G5r78w/exec';
 
-        // Vykreslení tabulky hned po načtení stránky, pokud už máme nějaká data
-        function renderTable() {
-            const tbody = document.getElementById('tableBody');
-            tbody.innerHTML = ''; // Vyčištění předchozího obsahu
-            
-            records.forEach(r => {
-                const row = document.createElement('tr');
-                row.innerHTML = `<td>${r.date}</td><td>${r.teacher}</td><td>${r.subject}</td><td>${r.lesson}</td><td>${r.delay}</td>`;
-                tbody.appendChild(row);
-            });
+        const form = document.getElementById('delayForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const statusMessage = document.getElementById('statusMessage');
 
-            if (records.length > 0) {
-                document.getElementById('dataTable').style.display = 'table';
-                document.getElementById('actionButtons').style.display = 'block';
-            } else {
-                document.getElementById('dataTable').style.display = 'none';
-                document.getElementById('actionButtons').style.display = 'none';
-            }
-        }
-
-        // Zavoláme vykreslení rovnou při startu
-        renderTable();
-
-        document.getElementById('delayForm').addEventListener('submit', function(e) {
+        form.addEventListener('submit', e => {
             e.preventDefault();
+            
+            // Zablokování tlačítka a ukázání zprávy "Odesílám"
+            submitBtn.disabled = true;
+            submitBtn.innerText = 'Odesílám...';
+            statusMessage.style.display = 'block';
+            statusMessage.className = '';
+            statusMessage.innerText = '';
 
-            // Získání hodnot
-            const date = document.getElementById('date').value;
-            const teacher = document.getElementById('teacher').value;
-            const subject = document.getElementById('subject').value;
-            const lesson = document.getElementById('lesson').value;
-            const delay = document.getElementById('delay').value;
+            // Vytvoření dat k odeslání
+            const formData = new FormData(form);
 
-            // Uložení do pole
-            records.push({ date, teacher, subject, lesson, delay });
-
-            // Uložení celého pole do paměti prohlížeče
-            localStorage.setItem('zpozdeni_dat', JSON.stringify(records));
-
-            // Překreslení tabulky
-            renderTable();
-
-            // Vyčištění formuláře
-            document.getElementById('teacher').value = '';
-            document.getElementById('subject').value = '';
-            document.getElementById('lesson').value = '';
-            document.getElementById('delay').value = '';
+            // Odeslání do Googlu
+            fetch(scriptURL, { method: 'POST', body: formData })
+                .then(response => {
+                    statusMessage.innerText = 'Záznam byl úspěšně uložen do Google Tabulky!';
+                    statusMessage.className = 'success';
+                    
+                    // Vyčištění formuláře (datum necháme)
+                    document.getElementById('teacher').value = '';
+                    document.getElementById('subject').value = '';
+                    document.getElementById('lesson').value = '';
+                    document.getElementById('delay').value = '';
+                    
+                    // Vrácení tlačítka do původního stavu
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = 'Odeslat do Google Tabulky';
+                    
+                    // Schování zprávy po 4 vteřinách
+                    setTimeout(() => { statusMessage.style.display = 'none'; }, 4000);
+                })
+                .catch(error => {
+                    statusMessage.innerText = 'Chyba při odesílání: ' + error.message;
+                    statusMessage.className = 'error';
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = 'Odeslat do Google Tabulky';
+                });
         });
-
-        function exportCSV() {
-            let csvContent = "\uFEFFDatum;Učitel;Předmět;Hodina;Zpoždění (min)\n";
-            records.forEach(r => {
-                csvContent += `${r.date};${r.teacher};${r.subject};${r.lesson};${r.delay}\n`;
-            });
-
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement("a");
-            const url = URL.createObjectURL(blob);
-            
-            link.setAttribute("href", url);
-            link.setAttribute("download", "zpozdeni_ucitelu.csv");
-            link.style.visibility = 'hidden';
-            
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
     </script>
 </body>
 </html>
