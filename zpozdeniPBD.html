@@ -12,8 +12,11 @@
         button { padding: 0.6rem 1rem; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
         .btn-submit { background-color: #0056b3; color: white; }
         .btn-submit:hover { background-color: #004494; }
-        .btn-export { background-color: #28a745; color: white; margin-top: 1.5rem; margin-bottom: 1rem; display: none; }
+        .btn-export { background-color: #28a745; color: white; margin-top: 1.5rem; margin-bottom: 1rem; }
         .btn-export:hover { background-color: #218838; }
+        .btn-clear { background-color: #dc3545; color: white; margin-top: 1.5rem; margin-bottom: 1rem; margin-left: 10px; }
+        .btn-clear:hover { background-color: #c82333; }
+        .action-buttons { display: none; } /* Skryto, dokud nejsou data */
         table { width: 100%; border-collapse: collapse; margin-top: 1rem; display: none; }
         th, td { border: 1px solid #ddd; padding: 0.5rem; text-align: left; }
         th { background-color: #f4f4f4; }
@@ -33,28 +36,27 @@
             <label for="teacher">Učitel:</label>
             <select id="teacher" required>
                 <option value="">-- Vyberte učitele ze seznamu --</option>
-                <option value="Lucie Auinger">Lucie Auinger</option>
-                <option value="Daniela Bártíková">Daniela Bártíková</option>
-                <option value="Jan Buček">Jan Buček</option>
-                <option value="Pavla Budilová (asistentka)">Pavla Budilová (asistentka)</option>
-                <option value="Ondřej Čech">Ondřej Čech</option>
-                <option value="Blanka Felegy">Blanka Felegy</option>
                 <option value="Alena Honková">Alena Honková</option>
                 <option value="Anna Hýbnerová">Anna Hýbnerová</option>
-                <option value="Miroslava Chocholová">Miroslava Chocholová</option>
-                <option value="Radana Jarošová">Radana Jarošová</option>
+                <option value="Blanka Felegy">Blanka Felegy</option>
+                <option value="Daniela Bártíková">Daniela Bártíková</option>
+                <option value="František Váňa">František Váňa</option>
+                <option value="Ilona Prokopcová">Ilona Prokopcová</option>
+                <option value="Jan Buček">Jan Buček</option>
                 <option value="Jana Jindřichová">Jana Jindřichová</option>
                 <option value="Jindřich Korytář">Jindřich Korytář</option>
-                <option value="Soňa Krausová">Soňa Krausová</option>
+                <option value="Lenka Petrášová">Lenka Petrášová</option>
+                <option value="Lucie Auinger">Lucie Auinger</option>
+                <option value="Lukáš Procházka">Lukáš Procházka</option>
+                <option value="Marcela Peroutková Kubíková">Marcela Peroutková Kubíková</option>
+                <option value="Martina Prošková">Martina Prošková</option>
+                <option value="Miroslava Chocholová">Miroslava Chocholová</option>
+                <option value="Ondřej Čech">Ondřej Čech</option>
+                <option value="Pavla Budilová (asistentka)">Pavla Budilová (asistentka)</option>
                 <option value="Pavlína Lindová">Pavlína Lindová</option>
                 <option value="Petr Peleška">Petr Peleška</option>
-                <option value="Marcela Peroutková Kubíková">Marcela Peroutková Kubíková</option>
-                <option value="Lenka Petrášová">Lenka Petrášová</option>
-                <option value="Lukáš Procházka">Lukáš Procházka</option>
-                <option value="Ilona Prokopcová">Ilona Prokopcová</option>
-                <option value="Martina Prošková">Martina Prošková</option>
-                <option value="František Váňa">František Váňa</option>
-                <option value="František Váňa">Test</option>
+                <option value="Radana Jarošová">Radana Jarošová</option>
+                <option value="Soňa Krausová">Soňa Krausová</option>
             </select>
         </div>
 
@@ -76,7 +78,10 @@
         <button type="submit" class="btn-submit">Přidat do seznamu</button>
     </form>
 
-    <button id="exportBtn" class="btn-export" onclick="exportCSV()">Stáhnout tabulku do Excelu (CSV)</button>
+    <div id="actionButtons" class="action-buttons">
+        <button class="btn-export" onclick="exportCSV()">Stáhnout tabulku do Excelu (CSV)</button>
+        <button class="btn-clear" onclick="clearData()">Vymazat všechna data</button>
+    </div>
 
     <table id="dataTable">
         <thead>
@@ -88,7 +93,7 @@
                 <th>Zpoždění (min)</th>
             </tr>
         </thead>
-        <tbody>
+        <tbody id="tableBody">
             </tbody>
     </table>
 
@@ -96,13 +101,36 @@
         // Nastavení dnešního data jako výchozího
         document.getElementById('date').valueAsDate = new Date();
 
-        // Pole pro ukládání dat
-        let records = [];
+        // Načtení dat z lokální paměti prohlížeče (nebo prázdné pole, pokud tam nic není)
+        let records = JSON.parse(localStorage.getItem('zpozdeni_dat')) || [];
+
+        // Vykreslení tabulky hned po načtení stránky, pokud už máme nějaká data
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = ''; // Vyčištění předchozího obsahu
+            
+            records.forEach(r => {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td>${r.date}</td><td>${r.teacher}</td><td>${r.subject}</td><td>${r.lesson}</td><td>${r.delay}</td>`;
+                tbody.appendChild(row);
+            });
+
+            if (records.length > 0) {
+                document.getElementById('dataTable').style.display = 'table';
+                document.getElementById('actionButtons').style.display = 'block';
+            } else {
+                document.getElementById('dataTable').style.display = 'none';
+                document.getElementById('actionButtons').style.display = 'none';
+            }
+        }
+
+        // Zavoláme vykreslení rovnou při startu
+        renderTable();
 
         document.getElementById('delayForm').addEventListener('submit', function(e) {
             e.preventDefault();
 
-            // Získání hodnot z formuláře
+            // Získání hodnot
             const date = document.getElementById('date').value;
             const teacher = document.getElementById('teacher').value;
             const subject = document.getElementById('subject').value;
@@ -112,17 +140,13 @@
             // Uložení do pole
             records.push({ date, teacher, subject, lesson, delay });
 
-            // Přidání řádku do HTML tabulky
-            const tbody = document.querySelector('#dataTable tbody');
-            const row = document.createElement('tr');
-            row.innerHTML = `<td>${date}</td><td>${teacher}</td><td>${subject}</td><td>${lesson}</td><td>${delay}</td>`;
-            tbody.appendChild(row);
+            // Uložení celého pole do paměti prohlížeče
+            localStorage.setItem('zpozdeni_dat', JSON.stringify(records));
 
-            // Zobrazení tabulky a tlačítka pro export (byly skryté, dokud nebylo co exportovat)
-            document.getElementById('dataTable').style.display = 'table';
-            document.getElementById('exportBtn').style.display = 'inline-block';
+            // Překreslení tabulky
+            renderTable();
 
-            // Vyčištění formuláře (datum necháme)
+            // Vyčištění formuláře
             document.getElementById('teacher').value = '';
             document.getElementById('subject').value = '';
             document.getElementById('lesson').value = '';
@@ -130,15 +154,11 @@
         });
 
         function exportCSV() {
-            // \uFEFF je tzv. BOM (Byte Order Mark) - říká Excelu, že jde o UTF-8 a má správně číst českou diakritiku
-            // Používáme středníky, protože český Excel je očekává jako oddělovač buněk
             let csvContent = "\uFEFFDatum;Učitel;Předmět;Hodina;Zpoždění (min)\n";
-
             records.forEach(r => {
                 csvContent += `${r.date};${r.teacher};${r.subject};${r.lesson};${r.delay}\n`;
             });
 
-            // Vytvoření souboru pro stažení
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
             const url = URL.createObjectURL(blob);
@@ -150,6 +170,14 @@
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+        }
+
+        function clearData() {
+            if (confirm("Opravdu chceš smazat všechna uložená data v tabulce? (Doporučuji si je nejdřív stáhnout!)")) {
+                records = [];
+                localStorage.removeItem('zpozdeni_dat');
+                renderTable();
+            }
         }
     </script>
 </body>
