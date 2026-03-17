@@ -16,6 +16,12 @@
         #statusMessage { margin-top: 1rem; font-weight: bold; display: none; }
         .success { color: #28a745; }
         .error { color: #dc3545; }
+        
+        /* Styly pro tabulku výpisů */
+        #loadingMsg { margin-top: 2rem; font-style: italic; color: #666; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; display: none; }
+        th, td { border: 1px solid #ddd; padding: 0.5rem; text-align: left; }
+        th { background-color: #f4f4f4; }
     </style>
 </head>
 <body>
@@ -76,31 +82,83 @@
 
     <div id="statusMessage"></div>
 
+    <hr style="margin: 2rem 0; border: 0; border-top: 1px solid #ccc;">
+
+    <h3>Dosavadní záznamy</h3>
+    <div id="loadingMsg">Načítám data z Google Tabulky...</div>
+    
+    <table id="dataTable">
+        <thead>
+            <tr>
+                <th>Datum</th>
+                <th>Učitel</th>
+                <th>Předmět</th>
+                <th>Hodina</th>
+                <th>Zpoždění (min)</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody">
+            </tbody>
+    </table>
+
     <script>
         // Nastavení dnešního data jako výchozího
         document.getElementById('date').valueAsDate = new Date();
 
-        // SEM VLOŽ SVOJI URL Z GOOGLE APPS SCRIPTU
-        const scriptURL = 'https://script.google.com/macros/s/AKfycbw4Tr00GaIf88oYhEkzY95HoRu5moHrZiuG9f9eiYktWybsOEjqRPrFDxWId405G5r78w/exec';
+        // TADY NEZAPOMEŇ VLOŽIT SVOJI URL ADRESU!
+        const scriptURL = 'https://script.google.com/macros/s/AKfycbzxSy4gY0uCd3lc0mt81dpk_2UnE96Hjk9dRCTaKPw4WEjFCw2TLcSkPOJxY5kKCITObw/exec';
 
         const form = document.getElementById('delayForm');
         const submitBtn = document.getElementById('submitBtn');
         const statusMessage = document.getElementById('statusMessage');
+        const tableBody = document.getElementById('tableBody');
+        const dataTable = document.getElementById('dataTable');
+        const loadingMsg = document.getElementById('loadingMsg');
 
+        // Funkce pro načtení dat z Google Tabulky
+        function loadData() {
+            fetch(scriptURL)
+                .then(response => response.json())
+                .then(data => {
+                    tableBody.innerHTML = ''; // Vyčištění předchozích dat
+                    
+                    if(data.length === 0) {
+                        loadingMsg.innerText = 'Zatím žádné záznamy.';
+                        dataTable.style.display = 'none';
+                        return;
+                    }
+
+                    data.forEach(r => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `<td>${r.date}</td><td>${r.teacher}</td><td>${r.subject}</td><td>${r.lesson}</td><td>${r.delay}</td>`;
+                        tableBody.appendChild(row);
+                    });
+
+                    loadingMsg.style.display = 'none';
+                    dataTable.style.display = 'table';
+                })
+                .catch(error => {
+                    console.error('Chyba:', error);
+                    loadingMsg.innerText = 'Chyba při načítání dat. Zkontroluj odkaz na skript.';
+                    loadingMsg.style.color = 'red';
+                });
+        }
+
+        // Načtení dat hned při otevření stránky
+        loadData();
+
+        // Odesílání formuláře
         form.addEventListener('submit', e => {
             e.preventDefault();
             
-            // Zablokování tlačítka a ukázání zprávy "Odesílám"
             submitBtn.disabled = true;
             submitBtn.innerText = 'Odesílám...';
             statusMessage.style.display = 'block';
             statusMessage.className = '';
             statusMessage.innerText = '';
 
-            // Vytvoření dat k odeslání
             const formData = new FormData(form);
 
-            // Odeslání do Googlu
             fetch(scriptURL, { method: 'POST', body: formData })
                 .then(response => {
                     statusMessage.innerText = 'Záznam byl úspěšně uložen do Google Tabulky!';
@@ -112,12 +170,15 @@
                     document.getElementById('lesson').value = '';
                     document.getElementById('delay').value = '';
                     
-                    // Vrácení tlačítka do původního stavu
                     submitBtn.disabled = false;
                     submitBtn.innerText = 'Odeslat do Google Tabulky';
                     
-                    // Schování zprávy po 4 vteřinách
                     setTimeout(() => { statusMessage.style.display = 'none'; }, 4000);
+
+                    // Aby se rovnou ukázal nový záznam i v tabulce dole, znovu zavoláme funkci načítání
+                    loadingMsg.style.display = 'block';
+                    loadingMsg.innerText = 'Aktualizuji data...';
+                    loadData();
                 })
                 .catch(error => {
                     statusMessage.innerText = 'Chyba při odesílání: ' + error.message;
