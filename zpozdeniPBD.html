@@ -77,7 +77,7 @@
             <input type="number" id="delay" name="delay" min="0" required>
         </div>
 
-        <button type="submit" id="submitBtn" class="btn-submit">Odeslat do Google Tabulky</button>
+        <button type="submit" id="submitBtn" class="btn-submit">Odeslat</button>
     </form>
 
     <div id="statusMessage"></div>
@@ -85,7 +85,7 @@
     <hr style="margin: 2rem 0; border: 0; border-top: 1px solid #ccc;">
 
     <h3>Dosavadní záznamy</h3>
-    <div id="loadingMsg">Načítám data z Google Tabulky...</div>
+    <div id="loadingMsg">Načítám data...</div>
     
     <table id="dataTable">
         <thead>
@@ -139,7 +139,7 @@
                 })
                 .catch(error => {
                     console.error('Chyba:', error);
-                    loadingMsg.innerText = 'Chyba při načítání dat. Zkontroluj odkaz na skript.';
+                    loadingMsg.innerText = 'Chyba při načítání dat.';
                     loadingMsg.style.color = 'red';
                 });
         }
@@ -161,7 +161,7 @@
 
             fetch(scriptURL, { method: 'POST', body: formData })
                 .then(response => {
-                    statusMessage.innerText = 'Záznam byl úspěšně uložen do Google Tabulky!';
+                    statusMessage.innerText = 'Záznam byl úspěšně uložen!';
                     statusMessage.className = 'success';
                     
                     // Vyčištění formuláře (datum necháme)
@@ -171,7 +171,7 @@
                     document.getElementById('delay').value = '';
                     
                     submitBtn.disabled = false;
-                    submitBtn.innerText = 'Odeslat do Google Tabulky';
+                    submitBtn.innerText = 'Odeslat';
                     
                     setTimeout(() => { statusMessage.style.display = 'none'; }, 4000);
 
@@ -184,7 +184,7 @@
                     statusMessage.innerText = 'Chyba při odesílání: ' + error.message;
                     statusMessage.className = 'error';
                     submitBtn.disabled = false;
-                    submitBtn.innerText = 'Odeslat do Google Tabulky';
+                    submitBtn.innerText = 'Odeslat';
                 });
         });
     </script>
