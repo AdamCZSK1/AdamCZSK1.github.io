@@ -4,14 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Deník projetých tratí</title>
-    
+
     <!-- Leaflet knihovny pro mapu -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <style>
         body, html { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; }
-        
+
         /* Přihlašovací obrazovka */
         #login-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -23,7 +23,7 @@
             width: 200px; box-sizing: border-box;
         }
         #login-screen button { background: #e74c3c; color: white; cursor: pointer; font-weight: bold; }
-        
+
         /* Mapa a ovládání */
         #app { display: none; height: 100%; flex-direction: column; }
         #map { flex-grow: 1; width: 100%; }
@@ -64,7 +64,7 @@
                 <input type="text" id="station-to" placeholder="Stanice Do (nepovinné)">
             </div>
             <button class="add-btn" onclick="addRoute()">Uložit trať a zakreslit</button>
-            
+
             <b>Projeté úseky:</b>
             <ul id="log-list"></ul>
         </div>
@@ -78,7 +78,7 @@
         function checkCredentials() {
             const userInput = document.getElementById('user-input').value;
             const passInput = document.getElementById('pass-input').value;
-            
+
             if (userInput === SECRET_USER && passInput === SECRET_PASSWORD) {
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('app').style.display = 'flex';
@@ -112,7 +112,7 @@
 
             routeLayerGroup.addTo(map);
             renderLog();
-            
+
             // Vykreslení už uložených tratí při startu
             routes.forEach(route => fetchAndDraw(route));
         }
@@ -131,7 +131,7 @@
             const newRoute = { id: Date.now(), country, line, from, to };
             routes.push(newRoute);
             localStorage.setItem('rail_routes', JSON.stringify(routes));
-            
+
             renderLog();
             fetchAndDraw(newRoute);
 
@@ -148,7 +148,7 @@
                 const li = document.createElement('li');
                 let text = `<strong>${route.line}</strong> (${route.country})`;
                 if (route.from || route.to) text += ` | ${route.from} - ${route.to}`;
-                
+
                 li.innerHTML = `<span>${text}</span> <button class="delete-btn" onclick="deleteRoute(${route.id})">X</button>`;
                 list.appendChild(li);
             });
@@ -157,7 +157,7 @@
         function deleteRoute(id) {
             routes = routes.filter(r => r.id !== id);
             localStorage.setItem('rail_routes', JSON.stringify(routes));
-            
+
             // Překreslení mapy (jednoduchý reset)
             routeLayerGroup.clearLayers();
             routes.forEach(route => fetchAndDraw(route));
