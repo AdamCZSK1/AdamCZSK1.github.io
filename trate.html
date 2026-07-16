@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deník projetých tratí</title>
+    
+    <!-- Leaflet knihovny pro mapu -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; }
+        
+        /* Přihlašovací obrazovka */
+        #login-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #2c3e50; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 2000; color: white;
+        }
+        #login-screen input, #login-screen button {
+            padding: 10px; margin: 5px; font-size: 16px; border-radius: 5px; border: none;
+            width: 200px; box-sizing: border-box;
+        }
+        #login-screen button { background: #e74c3c; color: white; cursor: pointer; font-weight: bold; }
+        
+        /* Mapa a ovládání */
+        #app { display: none; height: 100%; flex-direction: column; }
+        #map { flex-grow: 1; width: 100%; }
+        #controls {
+            background: white; padding: 15px; box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
+            z-index: 1000; display: flex; flex-direction: column; gap: 8px;
+            max-height: 40%; overflow-y: auto;
+        }
+        .input-group { display: flex; gap: 5px; }
+        .input-group input { flex-grow: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        button.add-btn { background: #27ae60; color: white; border: none; padding: 10px; border-radius: 4px; font-weight: bold; }
+        #log-list { list-style: none; padding: 0; margin: 10px 0 0 0; font-size: 14px; }
+        #log-list li { padding: 5px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+        .delete-btn { background: #e74c3c; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <!-- Přihlašovací brána -->
+    <div id="login-screen">
+        <h2>Železniční deník</h2>
+        <input type="text" id="user-input" placeholder="Zadej jméno">
+        <input type="password" id="pass-input" placeholder="Zadej heslo">
+        <button onclick="checkCredentials()">Vstoupit</button>
+    </div>
+
+    <!-- Hlavní aplikace -->
+    <div id="app">
+        <div id="map"></div>
+        <div id="controls">
+            <b>Zapsat novou trať:</b>
+            <div class="input-group">
+                <input type="text" id="country" placeholder="Stát (např. Česko, SK, DE)" required>
+                <input type="text" id="line-num" placeholder="Číslo tratě (např. 170)" required>
+            </div>
+            <div class="input-group">
+                <input type="text" id="station-from" placeholder="Stanice Od (nepovinné)">
+                <input type="text" id="station-to" placeholder="Stanice Do (nepovinné)">
+            </div>
+            <button class="add-btn" onclick="addRoute()">Uložit trať a zakreslit</button>
+            
+            <b>Projeté úseky:</b>
+            <ul id="log-list"></ul>
+        </div>
+    </div>
+
+    <script>
+        // --- ZABEZPEČENÍ ---
+        const SECRET_USER = "Adam_CZSK"; 
+        const SECRET_PASSWORD = "2607"; 
+
+        function checkCredentials() {
+            const userInput = document.getElementById('user-input').value;
+            const passInput = document.getElementById('pass-input').value;
+            
+            if (userInput === SECRET_USER && passInput === SECRET_PASSWORD) {
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('app').style.display = 'flex';
+                initMap();
+            } else {
+                alert('Špatné jméno nebo heslo!');
+            }
+        }
+
+        // --- MAPA A DATA ---
+        let map;
+        let routes = JSON.parse(localStorage.getItem('rail_routes')) || [];
+        let routeLayerGroup = L.layerGroup();
+
+        function initMap() {
+            // Inicializace mapy (střed Evropy)
+            map = L.map('map').setView([49.8, 15.5], 5);
+
+            // Základní mapa (OpenStreetMap)
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(map);
+
+            // OpenRailwayMap vrstva 
+            L.tileLayer('https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png', {
+                attribution: '© OpenRailwayMap',
+                maxZoom: 19,
+                opacity: 0.7
+            }).addTo(map);
+
+            routeLayerGroup.addTo(map);
+            renderLog();
+            
+            // Vykreslení už uložených tratí při startu
+            routes.forEach(route => fetchAndDraw(route));
+        }
+
+        function addRoute() {
+            const country = document.getElementById('country').value.trim();
+            const line = document.getElementById('line-num').value.trim();
+            const from = document.getElementById('station-from').value.trim();
+            const to = document.getElementById('station-to').value.trim();
+
+            if (!country || !line) {
+                alert("Vyplň alespoň stát a číslo tratě!");
+                return;
+            }
+
+            const newRoute = { id: Date.now(), country, line, from, to };
+            routes.push(newRoute);
+            localStorage.setItem('rail_routes', JSON.stringify(routes));
+            
+            renderLog();
+            fetchAndDraw(newRoute);
+
+            // Vyčištění políček
+            document.getElementById('line-num').value = '';
+            document.getElementById('station-from').value = '';
+            document.getElementById('station-to').value = '';
+        }
+
+        function renderLog() {
+            const list = document.getElementById('log-list');
+            list.innerHTML = '';
+            routes.forEach(route => {
+                const li = document.createElement('li');
+                let text = `<strong>${route.line}</strong> (${route.country})`;
+                if (route.from || route.to) text += ` | ${route.from} - ${route.to}`;
+                
+                li.innerHTML = `<span>${text}</span> <button class="delete-btn" onclick="deleteRoute(${route.id})">X</button>`;
+                list.appendChild(li);
+            });
+        }
+
+        function deleteRoute(id) {
+            routes = routes.filter(r => r.id !== id);
+            localStorage.setItem('rail_routes', JSON.stringify(routes));
+            
+            // Překreslení mapy (jednoduchý reset)
+            routeLayerGroup.clearLayers();
+            routes.forEach(route => fetchAndDraw(route));
+            renderLog();
+        }
+
+        // Pokus o stažení geometrie tratě přes Overpass API
+        function fetchAndDraw(route) {
+            const query = `
+                [out:json][timeout:25];
+                area["name"~"${route.country}",i]->.searchArea;
+                (
+                  relation["route"="train"]["ref"="${route.line}"](area.searchArea);
+                  way["railway"](r);
+                );
+                out geom;
+            `;
+
+            const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+
+            fetch(url)
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.elements || data.elements.length === 0) {
+                        console.warn(`Trať ${route.line} v ${route.country} nenalezena v OSM pod tímto ref kódem.`);
+                        return;
+                    }
+
+                    // Extrakce souřadnic
+                    let latlngs = [];
+                    data.elements.forEach(el => {
+                        if (el.type === 'way' && el.geometry) {
+                            let lineCoords = el.geometry.map(pt => [pt.lat, pt.lon]);
+                            latlngs.push(lineCoords);
+                        }
+                    });
+
+                    // Zvýraznění do mapy tlustou červenou čárou
+                    if (latlngs.length > 0) {
+                        const polyline = L.polyline(latlngs, {
+                            color: '#e74c3c',
+                            weight: 5,
+                            opacity: 0.8
+                        });
+                        polyline.bindPopup(`<b>Trať ${route.line} (${route.country})</b><br>${route.from} - ${route.to}`);
+                        routeLayerGroup.addLayer(polyline);
+                    }
+                })
+                .catch(err => console.error("Chyba při načítání dat tratě:", err));
+        }
+    </script>
+</body>
+</html>
